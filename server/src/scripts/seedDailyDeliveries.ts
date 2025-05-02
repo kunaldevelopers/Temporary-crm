@@ -167,7 +167,7 @@ const seedDailyDeliveries = async () => {
 
           // Random delivery status (80% delivered, 20% not delivered)
           const isDelivered = Math.random() > 0.2;
-          const deliveryStatus = isDelivered ? "delivered" : "not_delivered";
+          const deliveryStatus = isDelivered ? "Delivered" : "Not Delivered";
           const quantity = isDelivered ? client.quantity : 0;
           const price = isDelivered
             ? client.quantity * client.pricePerLitre
@@ -224,7 +224,7 @@ const seedDailyDeliveries = async () => {
 
           // Random delivery status (80% delivered, 20% not delivered)
           const isDelivered = Math.random() > 0.2;
-          const deliveryStatus = isDelivered ? "delivered" : "not_delivered";
+          const deliveryStatus = isDelivered ? "Delivered" : "Not Delivered";
           const quantity = isDelivered ? client.quantity : 0;
           const price = isDelivered
             ? client.quantity * client.pricePerLitre

@@ -33,7 +33,7 @@ export interface Client {
   quantity: number;
   priorityStatus: boolean;
   assignedStaff?: string;
-  deliveryStatus: "Pending" | "Delivered" | "Not Delivered";
+  deliveryStatus: "Delivered" | "Not Delivered";
   deliveryHistory: DeliveryRecord[];
   monthlyBilling: BillingInfo;
   createdAt: Date;
@@ -93,7 +93,7 @@ export interface DailyDelivery {
   staffId: string | Staff;
   date: string;
   shift: "AM" | "PM";
-  deliveryStatus: "delivered" | "not_delivered";
+  deliveryStatus: "Delivered" | "Not Delivered";
   quantity: number;
   price: number;
   notes?: string;

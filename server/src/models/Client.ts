@@ -3,7 +3,7 @@ import { getSetting } from "./Settings";
 
 interface DeliveryRecord {
   date: Date;
-  status: "Delivered" | "Not_Delivered";
+  status: "Delivered" | "Not Delivered";
   quantity: number;
   reason?: string;
 }
@@ -25,7 +25,7 @@ interface IClient extends Document {
   quantity: number;
   priorityStatus: boolean;
   assignedStaff?: Schema.Types.ObjectId;
-  deliveryStatus: "Delivered" | "Not_Delivered" | "Pending";
+  deliveryStatus: "Pending" | "Delivered" | "Not Delivered";
   deliveryHistory: DeliveryRecord[];
   monthlyBilling: BillingInfo;
   deliveryNotes?: string;
@@ -35,7 +35,7 @@ const deliveryRecordSchema = new Schema<DeliveryRecord>({
   date: { type: Date, required: true },
   status: {
     type: String,
-    enum: ["Delivered", "Not_Delivered"],
+    enum: ["Delivered", "Not Delivered"],
     required: true,
   },
   quantity: { type: Number, required: true },
@@ -67,7 +67,7 @@ const clientSchema = new Schema<IClient>(
     assignedStaff: { type: Schema.Types.ObjectId, ref: "Staff" },
     deliveryStatus: {
       type: String,
-      enum: ["Delivered", "Not_Delivered", "Pending"],
+      enum: ["Pending", "Delivered", "Not Delivered"],
       default: "Pending",
     },
     deliveryHistory: [deliveryRecordSchema],

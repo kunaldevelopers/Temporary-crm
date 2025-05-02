@@ -1,4 +1,4 @@
-import { Schema, model, Document } from "mongoose";
+import { Schema, model, Document, CallbackError } from "mongoose";
 import bcrypt from "bcrypt";
 import { getSetting } from "./Settings";
 
@@ -47,7 +47,8 @@ userSchema.pre("validate", async function (next) {
 
     next();
   } catch (error) {
-    next(error);
+    // Cast error to CallbackError type for Mongoose middleware
+    next(error as CallbackError);
   }
 });
 

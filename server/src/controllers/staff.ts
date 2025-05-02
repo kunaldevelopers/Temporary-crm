@@ -447,8 +447,8 @@ export const markClientDelivered = async (req: Request, res: Response) => {
       clientId: client._id,
       date: {
         $gte: today,
-        $lt: new Date(today.getTime() + 24 * 60 * 60 * 1000)
-      }
+        $lt: new Date(today.getTime() + 24 * 60 * 60 * 1000),
+      },
     });
 
     if (delivery) {
@@ -467,7 +467,7 @@ export const markClientDelivered = async (req: Request, res: Response) => {
         shift: client.timeShift,
         deliveryStatus: "Delivered",
         quantity: client.quantity,
-        price: client.quantity * client.pricePerLitre
+        price: client.quantity * client.pricePerLitre,
       });
       await delivery.save();
     }
@@ -505,40 +505,49 @@ export const markClientUndelivered = async (req: Request, res: Response) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    // Get staff ID from either the user's staff record or the user ID
+    let staffId = undefined;
+    if (req.user?._id) {
+      const staffRecord = await Staff.findOne({ userId: req.user._id });
+      staffId = staffRecord?._id;
+    }
+
     // Try to find an existing delivery record for today
     let delivery = await DailyDelivery.findOne({
       clientId: client._id,
       date: {
         $gte: today,
-        $lt: new Date(today.getTime() + 24 * 60 * 60 * 1000)
-      }
+        $lt: new Date(today.getTime() + 24 * 60 * 60 * 1000),
+      },
     });
 
     if (delivery) {
       // Update existing record
-      delivery.deliveryStatus = "Not_Delivered";
+      delivery.deliveryStatus = "Not Delivered"; // Changed from "Not_Delivered"
       delivery.quantity = 0;
       delivery.price = 0;
       delivery.notes = reason;
-      delivery.staffId = (req.user as any)?._id;
+      if (staffId) {
+        delivery.staffId = staffId as any; // Cast to any to bypass strict type checking since we know the ID is valid
+      }
       await delivery.save();
     } else {
       // Create new delivery record
       delivery = new DailyDelivery({
         clientId: client._id,
-        staffId: (req.user as any)?._id,
+        staffId: staffId,
         date: new Date(),
         shift: client.timeShift,
-        deliveryStatus: "Not_Delivered",
+        deliveryStatus: "Not Delivered", // Changed from "Not_Delivered"
         quantity: 0,
         price: 0,
-        notes: reason
+        notes: reason,
       });
       await delivery.save();
     }
 
     // Update client status
-    client.deliveryStatus = "Not_Delivered";
+    client.deliveryStatus = "Not Delivered"; // Changed from "Not_Delivered"
     client.deliveryNotes = reason;
     await client.save();
 
@@ -700,9 +709,9 @@ export const markClientDailyDelivered = async (req: Request, res: Response) => {
     const deliveredStatus =
       deliveryStatuses.find((s: string) => s === "Delivered") || "Delivered";
 
-    // Record the delivery for today - ENSURE we use the exact enum value "delivered" defined in the model
+    // Record the delivery for today
     console.log(
-      `[DEBUG] Marking client ${clientId} as delivered with status: "delivered" (lowercase)`
+      `[DEBUG] Marking client ${clientId} as delivered with status: "Delivered"`
     );
     const dailyDelivery = await DailyDelivery.findOneAndUpdate(
       { clientId, date: today },
@@ -711,7 +720,7 @@ export const markClientDailyDelivered = async (req: Request, res: Response) => {
         staffId,
         date: today,
         shift: client.timeShift,
-        deliveryStatus: "delivered", // Using exact enum value defined in model
+        deliveryStatus: "Delivered",
         quantity: client.quantity,
         price: client.quantity * client.pricePerLitre,
       },
@@ -828,7 +837,7 @@ export const markClientDailyUndelivered = async (
         staffId,
         date: today,
         shift: client.timeShift,
-        deliveryStatus: "not_delivered", // This exact string is used by dashboard queries
+        deliveryStatus: "Not Delivered",
         quantity: 0,
         price: 0,
         notes: reason,
@@ -843,7 +852,7 @@ export const markClientDailyUndelivered = async (
     // Add to client's delivery history
     client.deliveryHistory.push({
       date: today,
-      status: notDeliveredStatus,
+      status: "Not Delivered",
       quantity: 0,
       reason,
     });
@@ -898,7 +907,9 @@ export const updateAssignedClients = async (req: Request, res: Response) => {
     // Filter clients based on the shift
     const filteredClientIds = allAssignedClients
       .filter((client) => client.timeShift === shift)
-      .map((client) => new mongoose.Types.ObjectId(client._id.toString()));
+      .map((client) =>
+        mongoose.Types.ObjectId.createFromHexString(client._id.toString())
+      );
 
     // Update the staff's assignedClients field with only clients matching the shift
     staff.assignedClients = filteredClientIds;

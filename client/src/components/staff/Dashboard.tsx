@@ -518,12 +518,12 @@ const StaffDashboard: React.FC = () => {
                         <TableCell>
                           <Chip
                             label={
-                              delivery.deliveryStatus === "delivered"
+                              delivery.deliveryStatus === "Delivered"
                                 ? "Delivered"
                                 : "Not Delivered"
                             }
                             color={
-                              delivery.deliveryStatus === "delivered"
+                              delivery.deliveryStatus === "Delivered"
                                 ? "success"
                                 : "default"
                             }
@@ -540,7 +540,7 @@ const StaffDashboard: React.FC = () => {
                                   (delivery.clientId as any)?._id
                                 )
                               }
-                              disabled={delivery.deliveryStatus === "delivered"}
+                              disabled={delivery.deliveryStatus === "Delivered"}
                             >
                               Mark Delivered
                             </Button>
@@ -554,7 +554,7 @@ const StaffDashboard: React.FC = () => {
                                 )
                               }
                               disabled={
-                                delivery.deliveryStatus === "not_delivered"
+                                delivery.deliveryStatus === "Not Delivered"
                               }
                             >
                               Not Delivered

@@ -172,7 +172,7 @@ router.get(
           staffId,
           date,
           shift: staffSession.shift,
-          deliveryStatus: "not_delivered",
+          deliveryStatus: "Not Delivered",
           quantity: 0,
           price: 0,
           isPending: true, // Flag to indicate this is not saved to DB yet
@@ -239,11 +239,11 @@ router.get(
           DailyDelivery.find(query),
           DailyDelivery.countDocuments({
             ...query,
-            deliveryStatus: "delivered",
+            deliveryStatus: "Delivered",
           }),
           DailyDelivery.countDocuments({
             ...query,
-            deliveryStatus: "not_delivered",
+            deliveryStatus: "Not Delivered",
           }),
         ]
       );

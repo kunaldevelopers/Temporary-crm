@@ -55,7 +55,11 @@ export const getDashboardData = async (req: Request, res: Response) => {
         : 0;
 
     // Get today's delivery records
-    const deliveryRecords = await getTodaysDeliveryRecords(startDate, endDate, shiftFilter);
+    const deliveryRecords = await getTodaysDeliveryRecords(
+      startDate,
+      endDate,
+      shiftFilter
+    );
 
     // Get staff performance
     const staffPerformance = await getStaffPerformance(startDate, endDate);
@@ -238,7 +242,7 @@ const getStaffPerformance = async (startDate: Date, endDate: Date) => {
         },
         notDeliveredCount: {
           $sum: {
-            $cond: [{ $eq: ["$deliveryStatus", "Not_Delivered"] }, 1, 0],
+            $cond: [{ $eq: ["$deliveryStatus", "Not Delivered"] }, 1, 0],
           },
         },
         totalQuantity: { $sum: "$quantity" },
@@ -368,7 +372,7 @@ export const getDeliveryHistory = async (req: Request, res: Response) => {
     }
 
     // Create date range filter
-    let dateFilter = {};
+    let dateFilter: { $gte?: Date; $lte?: Date } = {};
     if (startDate || endDate) {
       dateFilter = {};
       if (startDate) dateFilter.$gte = new Date(startDate as string);
@@ -608,9 +612,12 @@ export const debugDeliveryData = async (req: Request, res: Response) => {
     const rawDeliveryStatuses = await DailyDelivery.distinct("deliveryStatus");
 
     // Count by delivery status
-    const statusCounts = {};
+    const statusCounts: { [key in "Delivered" | "Not Delivered"]: number } = {
+      Delivered: 0,
+      "Not Delivered": 0,
+    };
     rangeDeliveries.forEach((delivery) => {
-      const status = delivery.deliveryStatus;
+      const status = delivery.deliveryStatus as "Delivered" | "Not Delivered";
       statusCounts[status] = (statusCounts[status] || 0) + 1;
     });
 
@@ -661,7 +668,11 @@ export const debugDeliveryData = async (req: Request, res: Response) => {
   }
 };
 
-const getTodaysDeliveryRecords = async (startDate: Date, endDate: Date, shiftFilter?: string) => {
+const getTodaysDeliveryRecords = async (
+  startDate: Date,
+  endDate: Date,
+  shiftFilter?: string
+) => {
   const matchCriteria: any = {
     date: { $gte: startDate, $lte: endDate },
   };
@@ -673,57 +684,57 @@ const getTodaysDeliveryRecords = async (startDate: Date, endDate: Date, shiftFil
   // Get the latest delivery record for each client on this date
   const deliveryRecords = await DailyDelivery.aggregate([
     {
-      $match: matchCriteria
+      $match: matchCriteria,
     },
     {
-      $sort: { date: -1 } // Sort by date descending to get latest first
+      $sort: { date: -1 }, // Sort by date descending to get latest first
     },
     {
       $group: {
         _id: "$clientId",
-        doc: { $first: "$$ROOT" } // Take the first (latest) record for each client
-      }
+        doc: { $first: "$$ROOT" }, // Take the first (latest) record for each client
+      },
     },
     {
-      $replaceRoot: { newRoot: "$doc" }
+      $replaceRoot: { newRoot: "$doc" },
     },
     {
       $lookup: {
         from: "clients",
         localField: "clientId",
         foreignField: "_id",
-        as: "clientInfo"
-      }
+        as: "clientInfo",
+      },
     },
     {
       $lookup: {
         from: "staffs",
         localField: "staffId",
         foreignField: "_id",
-        as: "staffInfo"
-      }
+        as: "staffInfo",
+      },
     },
     {
       $unwind: {
         path: "$clientInfo",
-        preserveNullAndEmptyArrays: true
-      }
+        preserveNullAndEmptyArrays: true,
+      },
     },
     {
       $unwind: {
         path: "$staffInfo",
-        preserveNullAndEmptyArrays: true
-      }
-    }
+        preserveNullAndEmptyArrays: true,
+      },
+    },
   ]);
 
-  return deliveryRecords.map(record => ({
+  return deliveryRecords.map((record) => ({
     clientName: record.clientInfo?.name || "Unknown",
     location: record.clientInfo?.location || "",
     staff: record.staffInfo?.name || "Unknown",
     shift: record.shift,
     quantity: record.quantity,
     price: record.price,
-    status: record.deliveryStatus
+    status: record.deliveryStatus,
   }));
 };

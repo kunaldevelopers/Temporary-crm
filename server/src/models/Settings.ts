@@ -44,7 +44,7 @@ export const defaultSettings = {
   roles: ["admin", "staff"],
   defaultRole: "staff",
   defaultShift: "AM",
-  deliveryStatuses: ["Delivered", "Not_Delivered", "Pending"],
+  deliveryStatuses: ["Delivered", "Not Delivered", "Pending"],
   // ...any other settings
 };
 

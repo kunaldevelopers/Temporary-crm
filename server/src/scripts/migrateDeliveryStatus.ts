@@ -5,11 +5,11 @@ import { config } from "../config";
 
 const migrateDeliveryStatus = async () => {
   try {
-    // Connect to MongoDB
     await mongoose.connect(config.mongoUri);
     console.log("Connected to MongoDB");
 
-    // Update DailyDelivery records
+    // First update DailyDelivery records
+    console.log("Updating DailyDelivery records...");
     const dailyDeliveryResult = await DailyDelivery.updateMany(
       { deliveryStatus: { $in: ["delivered", "not_delivered"] } },
       [
@@ -24,7 +24,7 @@ const migrateDeliveryStatus = async () => {
                   },
                   {
                     case: { $eq: ["$deliveryStatus", "not_delivered"] },
-                    then: "Not_Delivered",
+                    then: "Not Delivered",
                   },
                 ],
                 default: "$deliveryStatus",
@@ -35,7 +35,10 @@ const migrateDeliveryStatus = async () => {
       ]
     );
 
-    // Update Client records
+    console.log("Updated DailyDelivery records:", dailyDeliveryResult);
+
+    // Then update Client records
+    console.log("Updating Client records...");
     const clientResult = await Client.updateMany(
       {
         deliveryStatus: {
@@ -54,11 +57,7 @@ const migrateDeliveryStatus = async () => {
                   },
                   {
                     case: { $eq: ["$deliveryStatus", "not_delivered"] },
-                    then: "Not_Delivered",
-                  },
-                  {
-                    case: { $eq: ["$deliveryStatus", "Not Delivered"] },
-                    then: "Not_Delivered",
+                    then: "Not Delivered",
                   },
                 ],
                 default: "$deliveryStatus",
@@ -69,8 +68,11 @@ const migrateDeliveryStatus = async () => {
       ]
     );
 
-    // Update delivery history in Client records
-    await Client.updateMany(
+    console.log("Updated Client records:", clientResult);
+
+    // Finally update delivery history records
+    console.log("Updating delivery history records...");
+    const deliveryHistoryResult = await Client.updateMany(
       {
         "deliveryHistory.status": {
           $in: ["delivered", "not_delivered", "Not Delivered"],
@@ -91,20 +93,16 @@ const migrateDeliveryStatus = async () => {
                         $switch: {
                           branches: [
                             {
-                              case: { $eq: ["$$record.status", "delivered"] },
+                              case: {
+                                $eq: ["$$record.status", "delivered"],
+                              },
                               then: "Delivered",
                             },
                             {
                               case: {
                                 $eq: ["$$record.status", "not_delivered"],
                               },
-                              then: "Not_Delivered",
-                            },
-                            {
-                              case: {
-                                $eq: ["$$record.status", "Not Delivered"],
-                              },
-                              then: "Not_Delivered",
+                              then: "Not Delivered",
                             },
                           ],
                           default: "$$record.status",
@@ -120,18 +118,16 @@ const migrateDeliveryStatus = async () => {
       ]
     );
 
+    console.log("Updated delivery history records:", deliveryHistoryResult);
     console.log("Migration completed successfully");
-    console.log(
-      `Updated ${dailyDeliveryResult.modifiedCount} daily delivery records`
-    );
-    console.log(`Updated ${clientResult.modifiedCount} client records`);
-
-    await mongoose.disconnect();
-    console.log("Disconnected from MongoDB");
   } catch (error) {
     console.error("Migration failed:", error);
-    process.exit(1);
+  } finally {
+    await mongoose.disconnect();
   }
 };
 
-migrateDeliveryStatus();
+// Run the migration if this script is executed directly
+if (require.main === module) {
+  migrateDeliveryStatus();
+}
