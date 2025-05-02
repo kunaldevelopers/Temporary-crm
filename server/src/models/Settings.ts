@@ -38,6 +38,16 @@ export const getSetting = async (key: string): Promise<any> => {
   return setting ? setting.settingValue : null;
 };
 
+// Default settings
+export const defaultSettings = {
+  shifts: ["AM", "PM"],
+  roles: ["admin", "staff"],
+  defaultRole: "staff",
+  defaultShift: "AM",
+  deliveryStatuses: ["Delivered", "Not_Delivered", "Pending"],
+  // ...any other settings
+};
+
 // Helper function to initialize default system settings
 export const initializeDefaultSettings = async (): Promise<void> => {
   // Define default settings

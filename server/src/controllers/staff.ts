@@ -438,11 +438,24 @@ export const markClientDelivered = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Client not found" });
     }
 
-    // Update delivery status
+    // Create new delivery record
+    const delivery = new DailyDelivery({
+      clientId: client._id,
+      staffId: (req.user as any)?._id,
+      date: new Date(),
+      shift: client.timeShift,
+      deliveryStatus: "Delivered",
+      quantity: client.quantity,
+      price: client.quantity * client.pricePerLitre
+    });
+
+    await delivery.save();
+
+    // Update client status
     client.deliveryStatus = "Delivered";
     await client.save();
 
-    res.json({ message: "Client marked as delivered", client });
+    res.json({ message: "Client marked as delivered", client, delivery });
   } catch (error) {
     console.error("Error marking client as delivered:", error);
     res.status(500).json({ message: "Error updating delivery status" });
@@ -467,14 +480,26 @@ export const markClientUndelivered = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Client not found" });
     }
 
-    // Update delivery status and reason
+    // Create new delivery record
+    const delivery = new DailyDelivery({
+      clientId: client._id,
+      staffId: (req.user as any)?._id,
+      date: new Date(),
+      shift: client.timeShift,
+      deliveryStatus: "Not_Delivered",
+      quantity: 0,
+      price: 0,
+      notes: reason
+    });
+
+    await delivery.save();
+
+    // Update client status
     client.deliveryStatus = "Not Delivered";
-    if (reason) {
-      client.deliveryNotes = reason;
-    }
+    client.deliveryNotes = reason;
     await client.save();
 
-    res.json({ message: "Client marked as not delivered", client });
+    res.json({ message: "Client marked as not delivered", client, delivery });
   } catch (error) {
     console.error("Error marking client as undelivered:", error);
     res.status(500).json({ message: "Error updating delivery status" });

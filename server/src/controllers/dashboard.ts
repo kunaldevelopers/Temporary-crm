@@ -17,11 +17,11 @@ export const getDashboardData = async (req: Request, res: Response) => {
     }
 
     // Create start and end date for the day (midnight to midnight)
-    const startDate = new Date(queryDate);
-    startDate.setHours(0, 0, 0, 0);
-
-    const endDate = new Date(queryDate);
-    endDate.setHours(23, 59, 59, 999);
+    // Using date-only strings to avoid time zone issues
+    const dateString = queryDate.toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    const startDate = new Date(`${dateString}T00:00:00.000Z`);
+    const endDate = new Date(`${dateString}T23:59:59.999Z`);
 
     // Log date range being used for querying
     console.log(
@@ -151,11 +151,15 @@ export const getDashboardData = async (req: Request, res: Response) => {
  * Get today's total delivery quantity and revenue
  */
 const getTodaysDeliveryTotal = async (startDate: Date, endDate: Date) => {
+  // Log the input parameters for debugging
+  console.log(`[DASHBOARD] Getting today's totals for ${startDate.toISOString()} to ${endDate.toISOString()}`);
+
   const result = await DailyDelivery.aggregate([
     {
       $match: {
         date: { $gte: startDate, $lte: endDate },
-        deliveryStatus: "delivered", // Only count successful deliveries
+        // Use the enum value directly
+        deliveryStatus: "Delivered"
       },
     },
     {
@@ -167,9 +171,13 @@ const getTodaysDeliveryTotal = async (startDate: Date, endDate: Date) => {
     },
   ]);
 
-  return result.length > 0
+  const returnValue = result.length > 0
     ? { quantity: result[0].totalQuantity, revenue: result[0].totalRevenue }
     : { quantity: 0, revenue: 0 };
+
+  // Log the result for debugging
+  console.log(`[DASHBOARD] Today's totals: ${JSON.stringify(returnValue)}`);
+  return returnValue;
 };
 
 /**
@@ -177,9 +185,15 @@ const getTodaysDeliveryTotal = async (startDate: Date, endDate: Date) => {
  */
 const getMonthlyDeliveryTotal = async (date: Date) => {
   const year = date.getFullYear();
-  const month = date.getMonth();
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0, 23, 59, 59, 999);
+  const month = date.getMonth() + 1;
+  
+  const firstDayStr = `${year}-${month.toString().padStart(2, '0')}-01`;
+  const lastDayStr = `${year}-${month.toString().padStart(2, '0')}-${new Date(year, month, 0).getDate()}`;
+  
+  const firstDay = new Date(`${firstDayStr}T00:00:00.000Z`);
+  const lastDay = new Date(`${lastDayStr}T23:59:59.999Z`);
+  
+  console.log(`[DASHBOARD] Querying monthly deliveries: ${firstDay.toISOString()} to ${lastDay.toISOString()}`);
 
   const result = await DailyDelivery.aggregate([
     {
@@ -188,7 +202,7 @@ const getMonthlyDeliveryTotal = async (date: Date) => {
           $gte: firstDay,
           $lte: lastDay,
         },
-        deliveryStatus: "delivered", // Only count successful deliveries
+        deliveryStatus: "Delivered", // Fixed case to match enum
       },
     },
     {
@@ -200,50 +214,64 @@ const getMonthlyDeliveryTotal = async (date: Date) => {
     },
   ]);
 
-  return result.length > 0
+  const returnValue = result.length > 0
     ? { quantity: result[0].totalQuantity, revenue: result[0].totalRevenue }
     : { quantity: 0, revenue: 0 };
+
+  console.log(`[DASHBOARD] Monthly totals: ${JSON.stringify(returnValue)}`);
+  return returnValue;
 };
 
 /**
  * Get delivery success rate
  */
 const getDeliverySuccessRate = async (startDate: Date, endDate: Date) => {
+  console.log(`[DASHBOARD] Querying success rate between ${startDate.toISOString()} and ${endDate.toISOString()}`);
+  
   const totalDeliveries = await DailyDelivery.countDocuments({
     date: { $gte: startDate, $lte: endDate },
   });
   const deliveredCount = await DailyDelivery.countDocuments({
     date: { $gte: startDate, $lte: endDate },
-    deliveryStatus: "delivered",
+    deliveryStatus: "Delivered",
   });
 
-  return {
+  const result = {
     total: totalDeliveries,
     delivered: deliveredCount,
     successRate:
       totalDeliveries > 0
-        ? ((deliveredCount / totalDeliveries) * 100).toFixed(1)
+        ? (deliveredCount / totalDeliveries) * 100
         : 0,
   };
+  
+  console.log(`[DASHBOARD] Success rate results: ${JSON.stringify(result)}`);
+  return result;
 };
 
 /**
  * Get staff performance by delivery success rate
  */
 const getStaffPerformance = async (startDate: Date, endDate: Date) => {
+  console.log(`[DASHBOARD] Querying staff performance between ${startDate.toISOString()} and ${endDate.toISOString()}`);
+  
   const staffPerformance = await DailyDelivery.aggregate([
-    { $match: { date: { $gte: startDate, $lte: endDate } } },
+    { 
+      $match: { 
+        date: { $gte: startDate, $lte: endDate } 
+      } 
+    },
     {
       $group: {
         _id: "$staffId",
         deliveredCount: {
           $sum: {
-            $cond: [{ $eq: ["$deliveryStatus", "delivered"] }, 1, 0],
+            $cond: [{ $eq: ["$deliveryStatus", "Delivered"] }, 1, 0],
           },
         },
         notDeliveredCount: {
           $sum: {
-            $cond: [{ $eq: ["$deliveryStatus", "not_delivered"] }, 1, 0],
+            $cond: [{ $eq: ["$deliveryStatus", "Not_Delivered"] }, 1, 0],
           },
         },
         totalQuantity: { $sum: "$quantity" },
@@ -258,10 +286,15 @@ const getStaffPerformance = async (startDate: Date, endDate: Date) => {
         as: "staffInfo",
       },
     },
-    { $unwind: "$staffInfo" },
+    { 
+      $unwind: {
+        path: "$staffInfo",
+        preserveNullAndEmptyArrays: true // Keep staff entries even if no matching info
+      }
+    },
     {
       $project: {
-        staffName: "$staffInfo.name",
+        staffName: { $ifNull: ["$staffInfo.name", "Unknown Staff"] },
         deliveredCount: 1,
         notDeliveredCount: 1,
         totalQuantity: 1,
@@ -289,6 +322,7 @@ const getStaffPerformance = async (startDate: Date, endDate: Date) => {
     },
   ]);
 
+  console.log(`[DASHBOARD] Found ${staffPerformance.length} staff performance records`);
   return staffPerformance;
 };
 
@@ -296,6 +330,8 @@ const getStaffPerformance = async (startDate: Date, endDate: Date) => {
  * Get shift-based analytics
  */
 const getShiftAnalytics = async (startDate: Date, endDate: Date) => {
+  console.log(`[DASHBOARD] Querying shift analytics between ${startDate.toISOString()} and ${endDate.toISOString()}`);
+  
   const shiftAnalytics = await DailyDelivery.aggregate([
     { $match: { date: { $gte: startDate, $lte: endDate } } },
     {
@@ -304,7 +340,7 @@ const getShiftAnalytics = async (startDate: Date, endDate: Date) => {
         deliveryCount: { $sum: 1 },
         deliveredCount: {
           $sum: {
-            $cond: [{ $eq: ["$deliveryStatus", "delivered"] }, 1, 0],
+            $cond: [{ $eq: ["$deliveryStatus", "Delivered"] }, 1, 0],
           },
         },
         totalQuantity: { $sum: "$quantity" },
@@ -334,7 +370,12 @@ const getShiftAnalytics = async (startDate: Date, endDate: Date) => {
       },
     },
   ]);
-
+  
+  console.log(`[DASHBOARD] Found ${shiftAnalytics.length} shift analytics records`);
+  if (shiftAnalytics.length > 0) {
+    console.log(`[DASHBOARD] Shift analytics sample: ${JSON.stringify(shiftAnalytics[0])}`);
+  }
+  
   return shiftAnalytics;
 };
 

@@ -3,7 +3,7 @@ import { getSetting } from "./Settings";
 
 interface DeliveryRecord {
   date: Date;
-  status: string;
+  status: "Delivered" | "Not_Delivered";
   quantity: number;
   reason?: string;
 }
@@ -20,12 +20,12 @@ interface IClient extends Document {
   name: string;
   number: string;
   location: string;
-  timeShift: string;
+  timeShift: "AM" | "PM";
   pricePerLitre: number;
   quantity: number;
   priorityStatus: boolean;
   assignedStaff?: Schema.Types.ObjectId;
-  deliveryStatus: string;
+  deliveryStatus: "Delivered" | "Not_Delivered" | "Pending";
   deliveryHistory: DeliveryRecord[];
   monthlyBilling: BillingInfo;
   deliveryNotes?: string;
@@ -33,7 +33,11 @@ interface IClient extends Document {
 
 const deliveryRecordSchema = new Schema<DeliveryRecord>({
   date: { type: Date, required: true },
-  status: { type: String, required: true },
+  status: {
+    type: String,
+    enum: ["Delivered", "Not_Delivered"],
+    required: true,
+  },
   quantity: { type: Number, required: true },
   reason: String,
 });
@@ -52,12 +56,20 @@ const clientSchema = new Schema<IClient>(
     name: { type: String, required: true },
     number: { type: String, required: true },
     location: { type: String, required: true },
-    timeShift: { type: String, required: true },
+    timeShift: {
+      type: String,
+      enum: ["AM", "PM"],
+      required: true,
+    },
     pricePerLitre: { type: Number, required: true },
     quantity: { type: Number, required: true },
     priorityStatus: { type: Boolean, default: false },
     assignedStaff: { type: Schema.Types.ObjectId, ref: "Staff" },
-    deliveryStatus: { type: String, default: "Pending" },
+    deliveryStatus: {
+      type: String,
+      enum: ["Delivered", "Not_Delivered", "Pending"],
+      default: "Pending",
+    },
     deliveryHistory: [deliveryRecordSchema],
     monthlyBilling: billingInfoSchema,
     deliveryNotes: { type: String },
@@ -92,7 +104,11 @@ clientSchema.pre("validate", async function (next) {
 
     next();
   } catch (error) {
-    next(error);
+    if (error instanceof Error) {
+      next(error);
+    } else {
+      next(new Error('An unknown error occurred'));
+    }
   }
 });
 

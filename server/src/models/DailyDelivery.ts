@@ -5,7 +5,7 @@ interface IDailyDelivery extends Document {
   staffId: Schema.Types.ObjectId;
   date: Date;
   shift: "AM" | "PM";
-  deliveryStatus: "delivered" | "not_delivered";
+  deliveryStatus: "Delivered" | "Not_Delivered";
   quantity: number;
   price: number;
   notes?: string;
@@ -23,8 +23,8 @@ const dailyDeliverySchema = new Schema<IDailyDelivery>(
     shift: { type: String, enum: ["AM", "PM"], required: true },
     deliveryStatus: {
       type: String,
-      enum: ["delivered", "not_delivered"],
-      default: "not_delivered",
+      enum: ["Delivered", "Not_Delivered"],
+      default: "Not_Delivered",
     },
     quantity: { type: Number, default: 0 },
     price: { type: Number, default: 0 },

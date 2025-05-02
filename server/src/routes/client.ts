@@ -10,6 +10,7 @@ import {
   getSalesHistory,
   getDetailedSales,
 } from "../controllers/client";
+import { debugDeliveryData } from "../controllers/dashboard";
 import { authMiddleware } from "../middleware/auth";
 
 const router = Router();
@@ -28,5 +29,6 @@ router.put("/:id/delivery-status", updateDeliveryStatus as any);
 router.get("/stats/dashboard", getDashboardStats as any);
 router.get("/stats/sales-history", getSalesHistory as any);
 router.get("/stats/detailed-sales", getDetailedSales as any);
+router.get("/stats/debug", debugDeliveryData as any);
 
 export const clientRouter = router;
