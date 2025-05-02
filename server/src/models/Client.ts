@@ -107,7 +107,7 @@ clientSchema.pre("validate", async function (next) {
     if (error instanceof Error) {
       next(error);
     } else {
-      next(new Error('An unknown error occurred'));
+      next(new Error("An unknown error occurred"));
     }
   }
 });

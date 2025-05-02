@@ -18,8 +18,8 @@ export const getDashboardData = async (req: Request, res: Response) => {
 
     // Create start and end date for the day (midnight to midnight)
     // Using date-only strings to avoid time zone issues
-    const dateString = queryDate.toISOString().split('T')[0]; // YYYY-MM-DD
-    
+    const dateString = queryDate.toISOString().split("T")[0]; // YYYY-MM-DD
+
     const startDate = new Date(`${dateString}T00:00:00.000Z`);
     const endDate = new Date(`${dateString}T23:59:59.999Z`);
 
@@ -54,53 +54,8 @@ export const getDashboardData = async (req: Request, res: Response) => {
         ? totalAssignedQuantity[0].totalQuantity
         : 0;
 
-    // Get today's delivery records with shift filter if provided
-    const matchCriteria: any = {
-      date: { $gte: startDate, $lte: endDate },
-    };
-
-    if (shiftFilter && ["AM", "PM"].includes(shiftFilter)) {
-      matchCriteria.shift = shiftFilter;
-    }
-
-    // Log the actual query criteria
-    console.log(`[DASHBOARD] Query criteria: ${JSON.stringify(matchCriteria)}`);
-
-    const deliveryRecords = await DailyDelivery.find(matchCriteria)
-      .populate("clientId", "name location")
-      .populate("staffId", "name")
-      .sort({ createdAt: -1 })
-      .lean();
-
-    // Log found records count
-    console.log(
-      `[DASHBOARD] Found ${deliveryRecords.length} delivery records for the query`
-    );
-
-    if (deliveryRecords.length > 0) {
-      // Log a sample record to verify structure (first record)
-      console.log(
-        `[DASHBOARD] Sample record: ${JSON.stringify({
-          id: deliveryRecords[0]._id,
-          client: (deliveryRecords[0].clientId as any)?.name || "Unknown",
-          staff: (deliveryRecords[0].staffId as any)?.name || "Unknown",
-          date: deliveryRecords[0].date,
-          status: deliveryRecords[0].deliveryStatus,
-        })}`
-      );
-    }
-
-    // Format delivery records for frontend
-    const formattedRecords = deliveryRecords.map((record) => ({
-      clientName: (record.clientId as any)?.name || "Unknown",
-      location: (record.clientId as any)?.location || "",
-      staff: (record.staffId as any)?.name || "Unknown",
-      shift: record.shift,
-      quantity: record.quantity,
-      price: record.price,
-      status:
-        record.deliveryStatus === "delivered" ? "Delivered" : "Not Delivered",
-    }));
+    // Get today's delivery records
+    const deliveryRecords = await getTodaysDeliveryRecords(startDate, endDate, shiftFilter);
 
     // Get staff performance
     const staffPerformance = await getStaffPerformance(startDate, endDate);
@@ -134,7 +89,7 @@ export const getDashboardData = async (req: Request, res: Response) => {
       assignmentStatus: {
         totalQuantityAssigned: assignedQuantity,
       },
-      deliveryRecords: formattedRecords,
+      deliveryRecords,
       staffPerformance,
       shiftAnalytics,
     });
@@ -152,14 +107,16 @@ export const getDashboardData = async (req: Request, res: Response) => {
  */
 const getTodaysDeliveryTotal = async (startDate: Date, endDate: Date) => {
   // Log the input parameters for debugging
-  console.log(`[DASHBOARD] Getting today's totals for ${startDate.toISOString()} to ${endDate.toISOString()}`);
+  console.log(
+    `[DASHBOARD] Getting today's totals for ${startDate.toISOString()} to ${endDate.toISOString()}`
+  );
 
   const result = await DailyDelivery.aggregate([
     {
       $match: {
         date: { $gte: startDate, $lte: endDate },
         // Use the enum value directly
-        deliveryStatus: "Delivered"
+        deliveryStatus: "Delivered",
       },
     },
     {
@@ -171,9 +128,10 @@ const getTodaysDeliveryTotal = async (startDate: Date, endDate: Date) => {
     },
   ]);
 
-  const returnValue = result.length > 0
-    ? { quantity: result[0].totalQuantity, revenue: result[0].totalRevenue }
-    : { quantity: 0, revenue: 0 };
+  const returnValue =
+    result.length > 0
+      ? { quantity: result[0].totalQuantity, revenue: result[0].totalRevenue }
+      : { quantity: 0, revenue: 0 };
 
   // Log the result for debugging
   console.log(`[DASHBOARD] Today's totals: ${JSON.stringify(returnValue)}`);
@@ -186,14 +144,20 @@ const getTodaysDeliveryTotal = async (startDate: Date, endDate: Date) => {
 const getMonthlyDeliveryTotal = async (date: Date) => {
   const year = date.getFullYear();
   const month = date.getMonth() + 1;
-  
-  const firstDayStr = `${year}-${month.toString().padStart(2, '0')}-01`;
-  const lastDayStr = `${year}-${month.toString().padStart(2, '0')}-${new Date(year, month, 0).getDate()}`;
-  
+
+  const firstDayStr = `${year}-${month.toString().padStart(2, "0")}-01`;
+  const lastDayStr = `${year}-${month.toString().padStart(2, "0")}-${new Date(
+    year,
+    month,
+    0
+  ).getDate()}`;
+
   const firstDay = new Date(`${firstDayStr}T00:00:00.000Z`);
   const lastDay = new Date(`${lastDayStr}T23:59:59.999Z`);
-  
-  console.log(`[DASHBOARD] Querying monthly deliveries: ${firstDay.toISOString()} to ${lastDay.toISOString()}`);
+
+  console.log(
+    `[DASHBOARD] Querying monthly deliveries: ${firstDay.toISOString()} to ${lastDay.toISOString()}`
+  );
 
   const result = await DailyDelivery.aggregate([
     {
@@ -214,9 +178,10 @@ const getMonthlyDeliveryTotal = async (date: Date) => {
     },
   ]);
 
-  const returnValue = result.length > 0
-    ? { quantity: result[0].totalQuantity, revenue: result[0].totalRevenue }
-    : { quantity: 0, revenue: 0 };
+  const returnValue =
+    result.length > 0
+      ? { quantity: result[0].totalQuantity, revenue: result[0].totalRevenue }
+      : { quantity: 0, revenue: 0 };
 
   console.log(`[DASHBOARD] Monthly totals: ${JSON.stringify(returnValue)}`);
   return returnValue;
@@ -226,8 +191,10 @@ const getMonthlyDeliveryTotal = async (date: Date) => {
  * Get delivery success rate
  */
 const getDeliverySuccessRate = async (startDate: Date, endDate: Date) => {
-  console.log(`[DASHBOARD] Querying success rate between ${startDate.toISOString()} and ${endDate.toISOString()}`);
-  
+  console.log(
+    `[DASHBOARD] Querying success rate between ${startDate.toISOString()} and ${endDate.toISOString()}`
+  );
+
   const totalDeliveries = await DailyDelivery.countDocuments({
     date: { $gte: startDate, $lte: endDate },
   });
@@ -240,11 +207,9 @@ const getDeliverySuccessRate = async (startDate: Date, endDate: Date) => {
     total: totalDeliveries,
     delivered: deliveredCount,
     successRate:
-      totalDeliveries > 0
-        ? (deliveredCount / totalDeliveries) * 100
-        : 0,
+      totalDeliveries > 0 ? (deliveredCount / totalDeliveries) * 100 : 0,
   };
-  
+
   console.log(`[DASHBOARD] Success rate results: ${JSON.stringify(result)}`);
   return result;
 };
@@ -253,13 +218,15 @@ const getDeliverySuccessRate = async (startDate: Date, endDate: Date) => {
  * Get staff performance by delivery success rate
  */
 const getStaffPerformance = async (startDate: Date, endDate: Date) => {
-  console.log(`[DASHBOARD] Querying staff performance between ${startDate.toISOString()} and ${endDate.toISOString()}`);
-  
+  console.log(
+    `[DASHBOARD] Querying staff performance between ${startDate.toISOString()} and ${endDate.toISOString()}`
+  );
+
   const staffPerformance = await DailyDelivery.aggregate([
-    { 
-      $match: { 
-        date: { $gte: startDate, $lte: endDate } 
-      } 
+    {
+      $match: {
+        date: { $gte: startDate, $lte: endDate },
+      },
     },
     {
       $group: {
@@ -286,11 +253,11 @@ const getStaffPerformance = async (startDate: Date, endDate: Date) => {
         as: "staffInfo",
       },
     },
-    { 
+    {
       $unwind: {
         path: "$staffInfo",
-        preserveNullAndEmptyArrays: true // Keep staff entries even if no matching info
-      }
+        preserveNullAndEmptyArrays: true, // Keep staff entries even if no matching info
+      },
     },
     {
       $project: {
@@ -322,7 +289,9 @@ const getStaffPerformance = async (startDate: Date, endDate: Date) => {
     },
   ]);
 
-  console.log(`[DASHBOARD] Found ${staffPerformance.length} staff performance records`);
+  console.log(
+    `[DASHBOARD] Found ${staffPerformance.length} staff performance records`
+  );
   return staffPerformance;
 };
 
@@ -330,8 +299,10 @@ const getStaffPerformance = async (startDate: Date, endDate: Date) => {
  * Get shift-based analytics
  */
 const getShiftAnalytics = async (startDate: Date, endDate: Date) => {
-  console.log(`[DASHBOARD] Querying shift analytics between ${startDate.toISOString()} and ${endDate.toISOString()}`);
-  
+  console.log(
+    `[DASHBOARD] Querying shift analytics between ${startDate.toISOString()} and ${endDate.toISOString()}`
+  );
+
   const shiftAnalytics = await DailyDelivery.aggregate([
     { $match: { date: { $gte: startDate, $lte: endDate } } },
     {
@@ -370,12 +341,16 @@ const getShiftAnalytics = async (startDate: Date, endDate: Date) => {
       },
     },
   ]);
-  
-  console.log(`[DASHBOARD] Found ${shiftAnalytics.length} shift analytics records`);
+
+  console.log(
+    `[DASHBOARD] Found ${shiftAnalytics.length} shift analytics records`
+  );
   if (shiftAnalytics.length > 0) {
-    console.log(`[DASHBOARD] Shift analytics sample: ${JSON.stringify(shiftAnalytics[0])}`);
+    console.log(
+      `[DASHBOARD] Shift analytics sample: ${JSON.stringify(shiftAnalytics[0])}`
+    );
   }
-  
+
   return shiftAnalytics;
 };
 
@@ -684,4 +659,71 @@ export const debugDeliveryData = async (req: Request, res: Response) => {
       error: error instanceof Error ? error.message : "Unknown error",
     });
   }
+};
+
+const getTodaysDeliveryRecords = async (startDate: Date, endDate: Date, shiftFilter?: string) => {
+  const matchCriteria: any = {
+    date: { $gte: startDate, $lte: endDate },
+  };
+
+  if (shiftFilter && ["AM", "PM"].includes(shiftFilter)) {
+    matchCriteria.shift = shiftFilter;
+  }
+
+  // Get the latest delivery record for each client on this date
+  const deliveryRecords = await DailyDelivery.aggregate([
+    {
+      $match: matchCriteria
+    },
+    {
+      $sort: { date: -1 } // Sort by date descending to get latest first
+    },
+    {
+      $group: {
+        _id: "$clientId",
+        doc: { $first: "$$ROOT" } // Take the first (latest) record for each client
+      }
+    },
+    {
+      $replaceRoot: { newRoot: "$doc" }
+    },
+    {
+      $lookup: {
+        from: "clients",
+        localField: "clientId",
+        foreignField: "_id",
+        as: "clientInfo"
+      }
+    },
+    {
+      $lookup: {
+        from: "staffs",
+        localField: "staffId",
+        foreignField: "_id",
+        as: "staffInfo"
+      }
+    },
+    {
+      $unwind: {
+        path: "$clientInfo",
+        preserveNullAndEmptyArrays: true
+      }
+    },
+    {
+      $unwind: {
+        path: "$staffInfo",
+        preserveNullAndEmptyArrays: true
+      }
+    }
+  ]);
+
+  return deliveryRecords.map(record => ({
+    clientName: record.clientInfo?.name || "Unknown",
+    location: record.clientInfo?.location || "",
+    staff: record.staffInfo?.name || "Unknown",
+    shift: record.shift,
+    quantity: record.quantity,
+    price: record.price,
+    status: record.deliveryStatus
+  }));
 };

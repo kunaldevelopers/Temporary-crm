@@ -438,18 +438,39 @@ export const markClientDelivered = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Client not found" });
     }
 
-    // Create new delivery record
-    const delivery = new DailyDelivery({
+    // Get today's date at midnight for comparison
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Try to find an existing delivery record for today
+    let delivery = await DailyDelivery.findOne({
       clientId: client._id,
-      staffId: (req.user as any)?._id,
-      date: new Date(),
-      shift: client.timeShift,
-      deliveryStatus: "Delivered",
-      quantity: client.quantity,
-      price: client.quantity * client.pricePerLitre
+      date: {
+        $gte: today,
+        $lt: new Date(today.getTime() + 24 * 60 * 60 * 1000)
+      }
     });
 
-    await delivery.save();
+    if (delivery) {
+      // Update existing record
+      delivery.deliveryStatus = "Delivered";
+      delivery.quantity = client.quantity;
+      delivery.price = client.quantity * client.pricePerLitre;
+      delivery.staffId = (req.user as any)?._id;
+      await delivery.save();
+    } else {
+      // Create new delivery record
+      delivery = new DailyDelivery({
+        clientId: client._id,
+        staffId: (req.user as any)?._id,
+        date: new Date(),
+        shift: client.timeShift,
+        deliveryStatus: "Delivered",
+        quantity: client.quantity,
+        price: client.quantity * client.pricePerLitre
+      });
+      await delivery.save();
+    }
 
     // Update client status
     client.deliveryStatus = "Delivered";
@@ -464,7 +485,7 @@ export const markClientDelivered = async (req: Request, res: Response) => {
 
 export const markClientUndelivered = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params; // client ID from URL
+    const { id } = req.params;
     const { reason } = req.body;
 
     console.log(
@@ -480,22 +501,44 @@ export const markClientUndelivered = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Client not found" });
     }
 
-    // Create new delivery record
-    const delivery = new DailyDelivery({
+    // Get today's date at midnight for comparison
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Try to find an existing delivery record for today
+    let delivery = await DailyDelivery.findOne({
       clientId: client._id,
-      staffId: (req.user as any)?._id,
-      date: new Date(),
-      shift: client.timeShift,
-      deliveryStatus: "Not_Delivered",
-      quantity: 0,
-      price: 0,
-      notes: reason
+      date: {
+        $gte: today,
+        $lt: new Date(today.getTime() + 24 * 60 * 60 * 1000)
+      }
     });
 
-    await delivery.save();
+    if (delivery) {
+      // Update existing record
+      delivery.deliveryStatus = "Not_Delivered";
+      delivery.quantity = 0;
+      delivery.price = 0;
+      delivery.notes = reason;
+      delivery.staffId = (req.user as any)?._id;
+      await delivery.save();
+    } else {
+      // Create new delivery record
+      delivery = new DailyDelivery({
+        clientId: client._id,
+        staffId: (req.user as any)?._id,
+        date: new Date(),
+        shift: client.timeShift,
+        deliveryStatus: "Not_Delivered",
+        quantity: 0,
+        price: 0,
+        notes: reason
+      });
+      await delivery.save();
+    }
 
     // Update client status
-    client.deliveryStatus = "Not Delivered";
+    client.deliveryStatus = "Not_Delivered";
     client.deliveryNotes = reason;
     await client.save();
 
